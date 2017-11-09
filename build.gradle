@@ -1,26 +1,26 @@
 apply plugin: 'java'
-apply plugin: 'maven'
 
-group = 'com.sparkjava'
-version = '1.0-SNAPSHOT'
+group = 'org.hydrogen'
+version = '0.1.0-SNAPSHOT'
 
-description = """"""
+description = "Minitwit adapted to use the Hydrogen HTTP library."
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
-
+buildscript {
+    ext.hydrogenVersion = '45ea43f1de'
+}
 
 repositories {
-        
-     maven { url "http://repo.maven.apache.org/maven2" }
+    mavenLocal()
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
 }
+
 dependencies {
-    compile group: 'com.sparkjava', name: 'spark-core', version:'2.5.4'
-    compile group: 'com.sparkjava', name: 'spark-template-freemarker', version:'2.3'
+    compile "com.github.snordgren:hydrogen:$hydrogenVersion"
     compile group: 'org.freemarker', name: 'freemarker', version:'2.3.25-incubating'
-    compile group: 'org.springframework', name: 'spring-core', version:'4.3.5.RELEASE'
-    compile group: 'org.springframework', name: 'spring-context', version:'4.3.5.RELEASE'
     compile group: 'org.springframework', name: 'spring-jdbc', version:'4.3.5.RELEASE'
     compile group: 'org.hsqldb', name: 'hsqldb', version:'2.3.4'
     compile group: 'org.apache.commons', name: 'commons-dbcp2', version:'2.1.1'

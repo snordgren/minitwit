@@ -1,317 +1,250 @@
 package com.minitwit.config;
 
-import static spark.Spark.before;
-import static spark.Spark.get;
-import static spark.Spark.halt;
-import static spark.Spark.post;
-import static spark.Spark.staticFileLocation;
+import com.minitwit.model.LoginResult;
+import com.minitwit.model.Message;
+import com.minitwit.model.User;
+import com.minitwit.service.impl.MiniTwitService;
+import org.apache.commons.beanutils.BeanUtils;
+import org.eclipse.jetty.util.MultiMap;
+import org.eclipse.jetty.util.UrlEncoded;
+import org.hydrogen.ClasspathDirectory;
+import org.hydrogen.Handler;
+import org.hydrogen.Request;
+import org.hydrogen.Response;
+import org.hydrogen.Router;
+import org.hydrogen.Session;
+import org.hydrogen.StatusCode;
+import org.hydrogen.VariableHandler;
+import org.springframework.util.StringUtils;
 
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.beanutils.BeanUtils;
-import org.eclipse.jetty.util.MultiMap;
-import org.eclipse.jetty.util.UrlEncoded;
-
-import com.minitwit.model.LoginResult;
-import com.minitwit.model.Message;
-import com.minitwit.model.User;
-import com.minitwit.service.impl.MiniTwitService;
-
-import spark.ModelAndView;
-import spark.Request;
-import spark.template.freemarker.FreeMarkerEngine;
-import spark.utils.StringUtils;
-
 public class WebConfig {
-	
-	private static final String USER_SESSION_ID = "user";
-	private MiniTwitService service;
-	 
+    private static final String USER_SESSION_ID = "user";
+    private final FreemarkerRenderer renderer = new FreemarkerRenderer();
+    private final MiniTwitService service;
 
-	public WebConfig(MiniTwitService service) {
-		this.service = service;
-		staticFileLocation("/public");
-		setupRoutes();
-	}
-	
-	private void setupRoutes() {
-		/*
-		 * Shows a users timeline or if no user is logged in,
-		 *  it will redirect to the public timeline.
-		 *  This timeline shows the user's messages as well
-		 *  as all the messages of followed users.
-		 */
-		get("/", (req, res) -> {
-			User user = getAuthenticatedUser(req);
-			Map<String, Object> map = new HashMap<>();
-			map.put("pageTitle", "Timeline");
-			map.put("user", user);
-			List<Message> messages = service.getUserFullTimelineMessages(user);
-			map.put("messages", messages);
-			return new ModelAndView(map, "timeline.ftl");
-        }, new FreeMarkerEngine());
-		before("/", (req, res) -> {
-			User user = getAuthenticatedUser(req);
-			if(user == null) {
-				res.redirect("/public");
-				halt();
-			}
-		});
+    private WebConfig(MiniTwitService service) {
+        this.service = service;
+    }
 
-		
-		/*
-		 * Displays the latest messages of all users.
-		 */
-		get("/public", (req, res) -> {
-			User user = getAuthenticatedUser(req);
-			Map<String, Object> map = new HashMap<>();
-			map.put("pageTitle", "Public Timeline");
-			map.put("user", user);
-			List<Message> messages = service.getPublicTimelineMessages();
-			map.put("messages", messages);
-			return new ModelAndView(map, "timeline.ftl");
-        }, new FreeMarkerEngine());
-		
-		
-		/*
-		 * Displays a user's tweets.
-		 */
-		get("/t/:username", (req, res) -> {
-			String username = req.params(":username");
-			User profileUser = service.getUserbyUsername(username);
-			
-			User authUser = getAuthenticatedUser(req);
-			boolean followed = false;
-			if(authUser != null) {
-				followed = service.isUserFollower(authUser, profileUser);
-			}
-			List<Message> messages = service.getUserTimelineMessages(profileUser);
-			
-			Map<String, Object> map = new HashMap<>();
-			map.put("pageTitle", username + "'s Timeline");
-			map.put("user", authUser);
-			map.put("profileUser", profileUser);
-			map.put("followed", followed);
-			map.put("messages", messages);
-			return new ModelAndView(map, "timeline.ftl");
-        }, new FreeMarkerEngine());
-		/*
-		 * Checks if the user exists
-		 */
-		before("/t/:username", (req, res) -> {
-			String username = req.params(":username");
-			User profileUser = service.getUserbyUsername(username);
-			if(profileUser == null) {
-				halt(404, "User not Found");
-			}
-		});
-		
-		
-		/*
-		 * Adds the current user as follower of the given user.
-		 */
-		get("/t/:username/follow", (req, res) -> {
-			String username = req.params(":username");
-			User profileUser = service.getUserbyUsername(username);
-			User authUser = getAuthenticatedUser(req);
-			
-			service.followUser(authUser, profileUser);
-			res.redirect("/t/" + username);
-			return null;
-        });
-		/*
-		 * Checks if the user is authenticated and the user to follow exists
-		 */
-		before("/t/:username/follow", (req, res) -> {
-			String username = req.params(":username");
-			User authUser = getAuthenticatedUser(req);
-			User profileUser = service.getUserbyUsername(username);
-			if(authUser == null) {
-				res.redirect("/login");
-				halt();
-			} else if(profileUser == null) {
-				halt(404, "User not Found");
-			}
-		});
-		
-		
-		/*
-		 * Removes the current user as follower of the given user.
-		 */
-		get("/t/:username/unfollow", (req, res) -> {
-			String username = req.params(":username");
-			User profileUser = service.getUserbyUsername(username);
-			User authUser = getAuthenticatedUser(req);
-			
-			service.unfollowUser(authUser, profileUser);
-			res.redirect("/t/" + username);
-			return null;
-        });
-		/*
-		 * Checks if the user is authenticated and the user to unfollow exists
-		 */
-		before("/t/:username/unfollow", (req, res) -> {
-			String username = req.params(":username");
-			User authUser = getAuthenticatedUser(req);
-			User profileUser = service.getUserbyUsername(username);
-			if(authUser == null) {
-				res.redirect("/login");
-				halt();
-			} else if(profileUser == null) {
-				halt(404, "User not Found");
-			}
-		});
-		
-		
-		/*
-		 * Presents the login form or redirect the user to
-		 * her timeline if it's already logged in
-		 */
-		get("/login", (req, res) -> {
-			Map<String, Object> map = new HashMap<>();
-			if(req.queryParams("r") != null) {
-				map.put("message", "You were successfully registered and can login now");
-			}
-			return new ModelAndView(map, "login.ftl");
-        }, new FreeMarkerEngine());
-		/*
-		 * Logs the user in.
-		 */
-		post("/login", (req, res) -> {
-			Map<String, Object> map = new HashMap<>();
-			User user = new User();
-			try {
-				MultiMap<String> params = new MultiMap<String>();
-				UrlEncoded.decodeTo(req.body(), params, "UTF-8");
-				BeanUtils.populate(user, params);
-			} catch (Exception e) {
-				halt(501);
-				return null;
-			}
-			LoginResult result = service.checkUser(user);
-			if(result.getUser() != null) {
-				addAuthenticatedUser(req, result.getUser());
-				res.redirect("/");
-				halt();
-			} else {
-				map.put("error", result.getError());
-			}
-			map.put("username", user.getUsername());
-			return new ModelAndView(map, "login.ftl");
-        }, new FreeMarkerEngine());
-		/*
-		 * Checks if the user is already authenticated
-		 */
-		before("/login", (req, res) -> {
-			User authUser = getAuthenticatedUser(req);
-			if(authUser != null) {
-				res.redirect("/");
-				halt();
-			}
-		});
-		
-		
-		/*
-		 * Presents the register form or redirect the user to
-		 * her timeline if it's already logged in
-		 */
-		get("/register", (req, res) -> {
-			Map<String, Object> map = new HashMap<>();
-			return new ModelAndView(map, "register.ftl");
-        }, new FreeMarkerEngine());
-		/*
-		 * Registers the user.
-		 */
-		post("/register", (req, res) -> {
-			Map<String, Object> map = new HashMap<>();
-			User user = new User();
-			try {
-				MultiMap<String> params = new MultiMap<String>();
-				UrlEncoded.decodeTo(req.body(), params, "UTF-8");
-				BeanUtils.populate(user, params);
-			} catch (Exception e) {
-				halt(501);
-				return null;
-			}
-			String error = user.validate();
-			if(StringUtils.isEmpty(error)) {
-				User existingUser = service.getUserbyUsername(user.getUsername());
-				if(existingUser == null) {
-					service.registerUser(user);
-					res.redirect("/login?r=1");
-					halt();
-				} else {
-					error = "The username is already taken";
-				}
-			}
-			map.put("error", error);
-			map.put("username", user.getUsername());
-			map.put("email", user.getEmail());
-			return new ModelAndView(map, "register.ftl");
-        }, new FreeMarkerEngine());
-		/*
-		 * Checks if the user is already authenticated
-		 */
-		before("/register", (req, res) -> {
-			User authUser = getAuthenticatedUser(req);
-			if(authUser != null) {
-				res.redirect("/");
-				halt();
-			}
-		});
-		
-		
-		/*
-		 * Registers a new message for the user.
-		 */
-		post("/message", (req, res) -> {
-			User user = getAuthenticatedUser(req);
-			MultiMap<String> params = new MultiMap<String>();
-			UrlEncoded.decodeTo(req.body(), params, "UTF-8");
-			Message m = new Message();
-			m.setUserId(user.getId());
-			m.setPubDate(new Date());
-			BeanUtils.populate(m, params);
-			service.addMessage(m);
-			res.redirect("/");
-			return null;
-        });
-		/*
-		 * Checks if the user is authenticated
-		 */
-		before("/message", (req, res) -> {
-			User authUser = getAuthenticatedUser(req);
-			if(authUser == null) {
-				res.redirect("/login");
-				halt();
-			}
-		});
-		
-		
-		/*
-		 * Logs the user out and redirects to the public timeline
-		 */
-		get("/logout", (req, res) -> {
-			removeAuthenticatedUser(req);
-			res.redirect("/public");
-			return null;
-        });
-	}
+    public static Handler of(MiniTwitService service) {
+        WebConfig config = new WebConfig(service);
+        return Router.builder()
+                .bind("/", new ClasspathDirectory("public/"))
+                .get("/", config.requireUser(config::index))
+                .get("/public", config::publicTimeline)
+                .get("/t/:username", config.userExists(config::userTimeline))
+                .get("/t/:username/follow",
+                        config.requireUser(config.userExists(config::followUser)))
+                .get("/t/:username/unfollow",
+                        config.requireUser(config.userExists(config::unfollowUser)))
+                .get("/login", config.requireNoUser(config::loginForm))
+                .post("/login", config::login)
+                .get("/register", config.requireNoUser(config::registerForm))
+                .post("/register", config::register)
+                .post("/message", config.requireUser(config::message))
+                .get("/logout", config::logout)
+                .build();
+    }
 
-	private void addAuthenticatedUser(Request request, User u) {
-		request.session().attribute(USER_SESSION_ID, u);
-		
-	}
+    private Session addAuthenticatedUser(Request request, User u) {
+        return request.getSession().withAttribute(USER_SESSION_ID, u);
+    }
 
-	private void removeAuthenticatedUser(Request request) {
-		request.session().removeAttribute(USER_SESSION_ID);
-		
-	}
+    private Session removeAuthenticatedUser(Request request) {
+        return request.getSession().withoutAttribute(USER_SESSION_ID);
+    }
 
-	private User getAuthenticatedUser(Request request) {
-		return request.session().attribute(USER_SESSION_ID);
-	}
+    private Response followUser(Request request, Map<String, String> variables) {
+        String username = variables.get(":username");
+        User profileUser = service.getUserbyUsername(username);
+        User authUser = getAuthenticatedUser(request);
+        service.followUser(authUser, profileUser);
+        return Response.redirect("/t/" + username);
+    }
+
+    private User getAuthenticatedUser(Request request) {
+        return request.getSession().getAttribute(USER_SESSION_ID);
+    }
+
+    private boolean hasAuthenticatedUser(Request request) {
+        return request.getSession().hasAttribute(USER_SESSION_ID);
+    }
+
+    private Response loginForm(Request req) {
+        Map<String, Object> map = new HashMap<>();
+        if (req.hasQueryParam("r")) {
+            map.put("message", "You were successfully registered and can login now");
+        }
+        return render("login.ftl", map);
+    }
+
+    private Response login(Request req) {
+        Map<String, Object> map = new HashMap<>();
+        User user = new User();
+        try {
+            MultiMap<String> params = new MultiMap<>();
+            UrlEncoded.decodeTo(req.getBody(), params, "UTF-8", 1024 * 1024, 1024);
+            BeanUtils.populate(user, params);
+        } catch (Exception e) {
+            return Response.status(StatusCode.NOT_IMPLEMENTED).emptyBody();
+        }
+        LoginResult result = service.checkUser(user);
+        if (result.getUser() != null) {
+            return Response.found("/")
+                    .session(addAuthenticatedUser(req, result.getUser()))
+                    .emptyBody();
+        } else {
+            map.put("error", result.getError());
+        }
+        map.put("username", user.getUsername());
+        return render("login.ftl", map);
+    }
+
+    private Handler requireNoUser(Handler handler) {
+        return request -> {
+            if (!hasAuthenticatedUser(request)) {
+                return handler.handle(request);
+            } else return Response.redirect("/");
+        };
+    }
+
+    private Response registerForm(Request req) {
+        return render("register.ftl", new HashMap<>());
+    }
+
+    private Response register(Request req) {
+        Map<String, Object> map = new HashMap<>();
+        User user = new User();
+        try {
+            MultiMap<String> params = new MultiMap<>();
+            UrlEncoded.decodeTo(req.getBody(), params, "UTF-8", 1024 * 1024, 1024);
+            BeanUtils.populate(user, params);
+        } catch (Exception e) {
+            return Response.status(StatusCode.NOT_IMPLEMENTED).emptyBody();
+        }
+        String error = user.validate();
+        if (StringUtils.isEmpty(error)) {
+            User existingUser = service.getUserbyUsername(user.getUsername());
+            if (existingUser == null) {
+                service.registerUser(user);
+                return Response.redirect("/login?r=1");
+            } else {
+                error = "The username is already taken";
+            }
+        }
+        map.put("error", error);
+        map.put("username", user.getUsername());
+        map.put("email", user.getEmail());
+        return render("register.ftl", map);
+    }
+
+    private Handler requireUser(Handler handler) {
+        return request -> {
+            if (hasAuthenticatedUser(request)) {
+                return handler.handle(request);
+            } else {
+                return Response.redirect("/public");
+            }
+        };
+    }
+
+    private VariableHandler requireUser(VariableHandler handler) {
+        return (request, variables) -> {
+            if (hasAuthenticatedUser(request)) {
+                return handler.handle(request, variables);
+            } else {
+                return Response.redirect("/public");
+            }
+        };
+    }
+
+    private Response index(Request request) {
+        User user = getAuthenticatedUser(request);
+        Map<String, Object> map = new HashMap<>();
+        map.put("pageTitle", "Timeline");
+        map.put("user", user);
+        List<Message> messages = service.getUserFullTimelineMessages(user);
+        map.put("messages", messages);
+        return render("timeline.ftl", map);
+    }
+
+    private Response publicTimeline(Request request) {
+        User user = getAuthenticatedUser(request);
+        Map<String, Object> map = new HashMap<>();
+        map.put("pageTitle", "Public Timeline");
+        map.put("user", user);
+        List<Message> messages = service.getPublicTimelineMessages();
+        map.put("messages", messages);
+        return render("timeline.ftl", map);
+    }
+
+    private Response unfollowUser(Request req, Map<String, String> pathVars) {
+        String username = pathVars.get(":username");
+        User profileUser = service.getUserbyUsername(username);
+        User authUser = getAuthenticatedUser(req);
+
+        service.unfollowUser(authUser, profileUser);
+        return Response.redirect("/t/" + username);
+    }
+
+    private VariableHandler userExists(VariableHandler handler) {
+        return (request, variables) -> {
+            String username = variables.get(":username");
+            User profileUser = service.getUserbyUsername(username);
+            if (profileUser == null) {
+                return Response.notFound().text("User Not Found");
+            } else return handler.handle(request, variables);
+        };
+    }
+
+    private Response userTimeline(Request request, Map<String, String> variables) {
+        String username = variables.get(":username");
+        User profileUser = service.getUserbyUsername(username);
+
+        User authUser = getAuthenticatedUser(request);
+        boolean followed = false;
+        if (authUser != null) {
+            followed = service.isUserFollower(authUser, profileUser);
+        }
+        List<Message> messages = service.getUserTimelineMessages(profileUser);
+
+        Map<String, Object> map = new HashMap<>();
+        map.put("pageTitle", username + "'s Timeline");
+        map.put("user", authUser);
+        map.put("profileUser", profileUser);
+        map.put("followed", followed);
+        map.put("messages", messages);
+        return render("timeline.ftl", map);
+    }
+
+    private Response message(Request request) {
+        try {
+            User user = getAuthenticatedUser(request);
+            MultiMap<String> params = new MultiMap<>();
+            UrlEncoded.decodeTo(request.getBody(), params, "UTF-8", 1024 * 1024, 1024);
+            Message m = new Message();
+            m.setUserId(user.getId());
+            m.setPubDate(new Date());
+            BeanUtils.populate(m, params);
+            service.addMessage(m);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return Response.redirect("/");
+    }
+
+    private Response logout(Request request) {
+        return Response.found("/public")
+                .session(removeAuthenticatedUser(request))
+                .emptyBody();
+    }
+
+    private Response render(String template, Map<String, Object> model) {
+        return Response.ok().html(renderer.render(template, model));
+    }
 }

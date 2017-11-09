@@ -1,26 +1,23 @@
 package com.minitwit.config;
 
-import javax.sql.DataSource;
-
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.jdbc.datasource.embedded.EmbeddedDatabase;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
 
-@Configuration
-public class DatabaseConfig {
+import javax.sql.DataSource;
 
-	@Bean
-	public DataSource dataSource() {
-		
-		EmbeddedDatabaseBuilder builder = new EmbeddedDatabaseBuilder();
-		EmbeddedDatabase db = builder
-				.setType(EmbeddedDatabaseType.HSQL)
-				.addScript("sql/create-db.sql")
+public class DatabaseConfig {
+    private final DataSource dataSource;
+
+    public DatabaseConfig() {
+        EmbeddedDatabaseBuilder builder = new EmbeddedDatabaseBuilder();
+        dataSource = builder
+                .setType(EmbeddedDatabaseType.HSQL)
+                .addScript("sql/create-db.sql")
 				.addScript("sql/insert-data.sql")
 				.build();
-		return db;
 	}
 
+    public DataSource getDataSource() {
+        return dataSource;
+    }
 }

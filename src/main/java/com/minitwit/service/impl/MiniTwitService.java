@@ -1,26 +1,22 @@
 package com.minitwit.service.impl;
 
-import java.util.List;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
+import com.minitwit.config.DatabaseConfig;
 import com.minitwit.dao.MessageDao;
 import com.minitwit.dao.UserDao;
+import com.minitwit.dao.impl.MessageDaoImpl;
+import com.minitwit.dao.impl.UserDaoImpl;
 import com.minitwit.model.LoginResult;
 import com.minitwit.model.Message;
 import com.minitwit.model.User;
 import com.minitwit.util.PasswordUtil;
 
-@Service
+import java.util.List;
+
 public class MiniTwitService {
-	
-	@Autowired
-	private UserDao userDao;
-	
-	@Autowired
-	private MessageDao messageDao;
-	
+    private final DatabaseConfig db = new DatabaseConfig();
+    private UserDao userDao = new UserDaoImpl(db.getDataSource());
+    private MessageDao messageDao = new MessageDaoImpl(db.getDataSource());
+
 	public List<Message> getUserFullTimelineMessages(User user) {
 		return messageDao.getUserFullTimelineMessages(user);
 	}
