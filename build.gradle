@@ -1,0 +1,30 @@
+apply plugin: 'java'
+apply plugin: 'maven'
+
+group = 'com.sparkjava'
+version = '1.0-SNAPSHOT'
+
+description = """"""
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+
+
+repositories {
+        
+     maven { url "http://repo.maven.apache.org/maven2" }
+}
+dependencies {
+    compile group: 'com.sparkjava', name: 'spark-core', version:'2.5.4'
+    compile group: 'com.sparkjava', name: 'spark-template-freemarker', version:'2.3'
+    compile group: 'org.freemarker', name: 'freemarker', version:'2.3.25-incubating'
+    compile group: 'org.springframework', name: 'spring-core', version:'4.3.5.RELEASE'
+    compile group: 'org.springframework', name: 'spring-context', version:'4.3.5.RELEASE'
+    compile group: 'org.springframework', name: 'spring-jdbc', version:'4.3.5.RELEASE'
+    compile group: 'org.hsqldb', name: 'hsqldb', version:'2.3.4'
+    compile group: 'org.apache.commons', name: 'commons-dbcp2', version:'2.1.1'
+    compile group: 'de.svenkubiak', name: 'jBCrypt', version:'0.4.1'
+    compile group: 'commons-beanutils', name: 'commons-beanutils', version:'1.9.3'
+    compile group: 'org.slf4j', name: 'slf4j-simple', version:'1.7.22'
+}
