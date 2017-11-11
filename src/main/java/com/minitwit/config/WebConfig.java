@@ -14,7 +14,6 @@ import org.hydrogen.Response;
 import org.hydrogen.Router;
 import org.hydrogen.Session;
 import org.hydrogen.StatusCode;
-import org.hydrogen.VariableHandler;
 import org.springframework.util.StringUtils;
 
 import java.util.Date;
@@ -59,8 +58,8 @@ public class WebConfig {
         return request.getSession().withoutAttribute(USER_SESSION_ID);
     }
 
-    private Response followUser(Request request, Map<String, String> variables) {
-        String username = variables.get(":username");
+    private Response followUser(Request request) {
+        String username = request.getRouteParam(":username");
         User profileUser = service.getUserbyUsername(username);
         User authUser = getAuthenticatedUser(request);
         service.followUser(authUser, profileUser);
@@ -153,16 +152,6 @@ public class WebConfig {
         };
     }
 
-    private VariableHandler requireUser(VariableHandler handler) {
-        return (request, variables) -> {
-            if (hasAuthenticatedUser(request)) {
-                return handler.handle(request, variables);
-            } else {
-                return Response.redirect("/public");
-            }
-        };
-    }
-
     private Response index(Request request) {
         User user = getAuthenticatedUser(request);
         Map<String, Object> map = new HashMap<>();
@@ -183,8 +172,8 @@ public class WebConfig {
         return render("timeline.ftl", map);
     }
 
-    private Response unfollowUser(Request req, Map<String, String> pathVars) {
-        String username = pathVars.get(":username");
+    private Response unfollowUser(Request req) {
+        String username = req.getRouteParam(":username");
         User profileUser = service.getUserbyUsername(username);
         User authUser = getAuthenticatedUser(req);
 
@@ -192,18 +181,20 @@ public class WebConfig {
         return Response.redirect("/t/" + username);
     }
 
-    private VariableHandler userExists(VariableHandler handler) {
-        return (request, variables) -> {
-            String username = variables.get(":username");
+    private Handler userExists(Handler handler) {
+        return (request) -> {
+            String username = request.getRouteParam(":username");
             User profileUser = service.getUserbyUsername(username);
             if (profileUser == null) {
                 return Response.notFound().text("User Not Found");
-            } else return handler.handle(request, variables);
+            }
+
+            return handler.handle(request);
         };
     }
 
-    private Response userTimeline(Request request, Map<String, String> variables) {
-        String username = variables.get(":username");
+    private Response userTimeline(Request request) {
+        String username = request.getRouteParam(":username");
         User profileUser = service.getUserbyUsername(username);
 
         User authUser = getAuthenticatedUser(request);
