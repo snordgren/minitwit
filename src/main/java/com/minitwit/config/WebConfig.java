@@ -13,7 +13,7 @@ import org.hydrogen.Request;
 import org.hydrogen.Response;
 import org.hydrogen.Router;
 import org.hydrogen.Session;
-import org.hydrogen.StatusCode;
+import org.hydrogen.Status;
 import org.springframework.util.StringUtils;
 
 import java.util.Date;
@@ -90,7 +90,7 @@ public class WebConfig {
             UrlEncoded.decodeTo(req.getBody(), params, "UTF-8", 1024 * 1024, 1024);
             BeanUtils.populate(user, params);
         } catch (Exception e) {
-            return Response.status(StatusCode.NOT_IMPLEMENTED).emptyBody();
+            return Response.status(Status.NOT_IMPLEMENTED).emptyBody();
         }
         LoginResult result = service.checkUser(user);
         if (result.getUser() != null) {
@@ -124,7 +124,7 @@ public class WebConfig {
             UrlEncoded.decodeTo(req.getBody(), params, "UTF-8", 1024 * 1024, 1024);
             BeanUtils.populate(user, params);
         } catch (Exception e) {
-            return Response.status(StatusCode.NOT_IMPLEMENTED).emptyBody();
+            return Response.status(Status.NOT_IMPLEMENTED).emptyBody();
         }
         String error = user.validate();
         if (StringUtils.isEmpty(error)) {

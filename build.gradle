@@ -9,7 +9,7 @@ sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
 buildscript {
-    ext.hydrogenVersion = '3ff88f5228'
+    ext.hydrogenVersion = '-SNAPSHOT'
 }
 
 repositories {
